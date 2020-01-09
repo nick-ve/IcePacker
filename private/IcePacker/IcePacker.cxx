@@ -111,6 +111,7 @@ IcePacker::IcePacker(const I3Context& ctx)
     filterName_ = "FilterMask";
     maxtreesize = 200000000;
     multimctrack_=false;
+    fLeapSecond=false; // Correct 120398<=run<=126377 for faulty leap second insertion
     
     AddParameter("RootFileName", "IceEvent output file name", rootfilename_);
     AddParameter("TreeName", "root tree name", treename_);
@@ -136,13 +137,14 @@ IcePacker::IcePacker(const I3Context& ctx)
     AddParameter("MCWeightInfo","Info of the MC production from the MCWeightDictionary",mcweightinfo_);
     AddParameter("MultiMCtrack","Set to true for conversion of all MC track information",multimctrack_);
     AddParameter("setmaxtreesize","Setting a maximum treesize",maxtreesize);
+    AddParameter("LeapSecond","Correct 120398<=run<=126377 for faulty leap second insertion",fLeapSecond);
     
     AddOutBox("OutBox");
 }
 
 void IcePacker::Configure()
 {
-    cout<<"Configuring IcePacker"<<endl;
+    cout << " *** Configuring IcePacker ***" << endl;
     GetParameter("RootFileName", rootfilename_);
     GetParameter("TreeName", treename_);
     GetParameter("TrackExtract",trackextractOn_);
@@ -167,6 +169,7 @@ void IcePacker::Configure()
     GetParameter("MCWeightInfo",mcweightinfo_);
     GetParameter("MultiMCtrack",multimctrack_);
     GetParameter("setmaxtreesize",maxtreesize);
+    GetParameter("LeapSecond",fLeapSecond);
     
     //Creating outputfile
     tfile_ = new TFile(rootfilename_.c_str(), "RECREATE");
@@ -302,7 +305,9 @@ void IcePacker::Physics(I3FramePtr frame)
     // Correct for faulty leap second insertion.
     // For the run periods indicated below, the IceCube clock was 1 sec. behind.
     // So, here we add 1 sec. to the IceCube time for those run periods.
-    if (runid>=120398 && runid<=126377) evt->Add(0,1,0,0);
+    // However, this should not be done anymore for L2 data after the pass2 re-processing
+    // since the correction was applied in the re-processing.
+    if (fLeapSecond && runid>=120398 && runid<=126377) evt->Add(0,1,0,0);
     
     // Entering the DAQ information
     daq.Reset(1);

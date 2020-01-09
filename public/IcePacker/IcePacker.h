@@ -81,6 +81,7 @@ private:
   Bool_t trackextractOn_;
   Bool_t multimctrack_;
   long maxtreesize;
+  Bool_t fLeapSecond; // Correct 120398<=run<=126377 for faulty leap second insertion.
 
  protected:
  
