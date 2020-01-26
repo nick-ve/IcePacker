@@ -1,15 +1,17 @@
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
- * Copyright(c) 1997-2009, NCFS, All Rights Reserved.                          *
+ * Copyright(c) 1997-2019, NCFS/IIHE, All Rights Reserved.                     *
  *                                                                             *
- * Author: The Netherlands Center for Fundamental Studies (NCFS).              *
- *         http://sites.google.com/site/ncfsweb ncfs.nl@gmail.com              *
+ * Authors: The Netherlands Center for Fundamental Studies (NCFS).             *
+ *          The Inter-university Institute for High Energies (IIHE).           *                 
+ *                    Website : http://www.iihe.ac.be                          *
+ *            Contact : Nick van Eijndhoven (nickve.nl@gmail.com)              *
  *                                                                             *
  * Contributors are mentioned in the code where appropriate.                   *
  *                                                                             * 
  * No part of this software may be used, copied, modified or distributed       *
- * by any means nor transmitted or translated into machine language without    *
- * written permission by the NCFS.                                             *
- * Permission to use the documentation strictly for non-commercial purposes    *
+ * by any means nor transmitted or translated into machine language for        *
+ * commercial purposes without written permission by the IIHE representative.  *
+ * Permission to use the software strictly for non-commercial purposes         *
  * is hereby granted without fee, provided that the above copyright notice     *
  * appears in all copies and that both the copyright notice and this           *
  * permission notice appear in the supporting documentation.                   *
@@ -24,8 +26,6 @@
  * The authors disclaim all liability for direct or consequential damage       *
  * resulting from your use of this software.                                   *
  * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
-
-// $Id$
 
 ///////////////////////////////////////////////////////////////////////////
 // Class Nc3Vector
@@ -92,7 +92,7 @@
 // c=a*5;
 //
 //--- Author: Nick van Eijndhoven 30-mar-1999 Utrecht University
-//- Modified: NvE $Date$ NCFS
+//- Modified: Nick van Eijndhoven, IIHE-VUB, October 19, 2019  15:56
 ///////////////////////////////////////////////////////////////////////////
 
 #include "Nc3Vector.h"
@@ -211,6 +211,7 @@ void Nc3Vector::SetVector(Double_t* v,TString f,TString u)
  fV=new Double32_t[fNv];
 
  Double_t pi=acos(-1.);
+ Double_t twopi=2.*pi;
 
  Double_t fu=1.;
  if (u == "deg") fu=pi/180.;
@@ -229,19 +230,20 @@ void Nc3Vector::SetVector(Double_t* v,TString f,TString u)
    y=v[1];
    z=v[2];
    r=sqrt(x*x+y*y+z*z);
+
+   // Determine theta in [0,pi]
    theta=0;
-   if (r && fabs(z/r)<=1.)
+   if (z<0) theta=pi;
+   if (r)
    {
-    theta=acos(z/r);
+    if (fabs(z/r)<=1) theta=acos(z/r); // Puts theta in [0,pi]
    }
-   else
-   {
-    if (z<0.) theta=pi;
-   }
-   if (theta<0.) theta+=2.*pi;
+   if (theta<0) theta=fabs(theta); // To catch possible accuracy issue
+
+   // Determine phi in [0,twopi]
    phi=0;
-   if (x || y) phi=atan2(y,x);
-   if (phi<0.) phi+=2.*pi;
+   if (x || y) phi=atan2(y,x); // Puts phi in [-pi,pi]
+   if (phi<0) phi+=twopi;
 
    fV[0]=r;
    fV[1]=theta;
@@ -249,9 +251,40 @@ void Nc3Vector::SetVector(Double_t* v,TString f,TString u)
    break;
 
   case 2: // Spherical coordinates
-   fV[0]=v[0];
-   fV[1]=v[1]*fu;
-   fV[2]=v[2]*fu;
+   r=v[0];
+   theta=v[1]*fu;
+   phi=v[2]*fu;
+
+   // Limit phi to the interval [0,twopi]
+   while (phi<0)
+   {
+    phi+=twopi;
+   }
+   while (phi>twopi)
+   {
+    phi-=twopi;
+   }
+
+   // Limit theta to the interval [-pi,pi]
+   while (theta<-pi)
+   {
+    theta+=twopi;
+   }
+   while (theta>pi)
+   {
+    theta-=twopi;
+   }
+   // Limit theta to the interval [0,pi]
+   if (theta<0)
+   {
+    theta=fabs(theta);
+    phi+=pi;
+    if (phi>twopi) phi-=twopi;
+   }
+
+   fV[0]=r;
+   fV[1]=theta;
+   fV[2]=phi;
    break;
 
   case 3: // Cylindrical coordinates
@@ -259,17 +292,25 @@ void Nc3Vector::SetVector(Double_t* v,TString f,TString u)
    phi=v[1]*fu;
    z=v[2];
    r=sqrt(rho*rho+z*z);
-   if (phi<0.) phi+=2.*pi;
+
+   // Limit phi to the interval [0,twopi]
+   while (phi<0)
+   {
+    phi+=twopi;
+   }
+   while (phi>twopi)
+   {
+    phi-=twopi;
+   }
+
+   // Determine theta in [0,pi]
    theta=0;
-   if (r && fabs(z/r)<=1.)
+   if (z<0) theta=pi;
+   if (rho && r)
    {
-    theta=acos(z/r);
+    if (fabs(z/r)<=1) theta=acos(z/r); // Puts theta in [0,pi]
    }
-   else
-   {
-    if (z<0.) theta=pi;
-   }
-   if (theta<0.) theta+=2.*pi;
+   if (theta<0) theta=fabs(theta); // To catch possible accuracy issue
 
    fV[0]=r;
    fV[1]=theta;
@@ -277,7 +318,7 @@ void Nc3Vector::SetVector(Double_t* v,TString f,TString u)
    break;
 
   default: // Unsupported reference frame
-   cout << "*Nc3Vector::SetVector* Unsupported frame : " << f.Data() << endl
+   cout << "*Nc3Vector::SetVector* Unsupported frame : " << f << endl
         << " Possible frames are 'car', 'sph' and 'cyl'." << endl; 
 
    fNv=0;
@@ -544,7 +585,6 @@ void Nc3Vector::GetErrors(Double_t* e,TString f,TString u) const
 
  Double_t r=fV[0];
  Double_t theta=fV[1];
- Double_t phi=fV[2];
  Double_t dx=fV[3];
  Double_t dy=fV[4];
  Double_t dz=fV[5];
